@@ -1,0 +1,16 @@
+{
+  "name": "Furniture Inventory",
+  "short_name": "Inventory",
+  "description": "Shared furniture inventory manager with live sync, photos, and QR tags",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F6F1E7",
+  "theme_color": "#A8562E",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

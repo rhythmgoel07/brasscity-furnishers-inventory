@@ -1,0 +1,86 @@
+rules_version = '2';
+
+// Paste this into Firebase Console -> Firestore Database -> Rules, replacing what's
+// there. Two things must be switched on in the console first:
+//
+//   1. Firestore -> Data -> create a collection called `managers`, and add one
+//      empty document per manager, using that person's Auth UID as the document ID.
+//      Find a UID under Authentication -> Users.
+//
+// The previous rules said `allow write: if request.auth != null`. Once anonymous
+// sign-in is on, that would have meant literally anyone on the internet could edit
+// or delete your entire inventory. The managers collection is what closes that.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // An anonymous visitor is signed in, but is not in the managers collection.
+    function isManager() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/managers/$(request.auth.uid));
+    }
+
+    // Rejects malformed or oversized writes even if a manager account is misused
+    // or a buggy client sends nonsense. Firestore's hard limit is ~1 MB per
+    // document; images are capped well below that so a single item can't bloat.
+    function validItem() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['id', 'sku', 'name', 'category', 'cost', 'price', 'stock', 'reorder'])
+        && d.id is string && d.id.size() > 0 && d.id.size() < 120
+        && d.sku is string && d.sku.size() > 0 && d.sku.size() < 120
+        && d.name is string && d.name.size() < 300
+        && d.category is string && d.category.size() < 100
+        && d.cost is number && d.cost >= 0
+        && d.price is number && d.price >= 0
+        && d.stock is number && d.stock >= 0
+        && d.reorder is number && d.reorder >= 0
+        && (!('image' in d) || d.image == null || (d.image is string && d.image.size() < 900000));
+    }
+
+    match /items/{itemId} {
+      // Public read, by your decision: staff browse with no login at all.
+      // Note this does mean anyone who finds the site URL can read cost prices
+      // and supplier names, since the project ID is public in firebase-config.js.
+      // Change to `if signedIn()` (plus anonymous sign-in) if that ever changes.
+      allow read: if true;
+
+      allow create, update: if isManager() && validItem();
+      allow delete: if isManager();
+    }
+
+    // Photo bytes, split out of the item documents so browsing devices only
+    // download the photos they actually scroll to.
+    match /itemPhotos/{itemId} {
+      allow read: if true;
+      // ~1 MB is the hard Firestore document ceiling; these caps keep a single
+      // photo comfortably under it even after base64's ~33% overhead.
+      allow write: if isManager()
+        && (!('thumb' in request.resource.data) || request.resource.data.thumb.size() < 120000)
+        && (!('full' in request.resource.data) || request.resource.data.full.size() < 700000);
+    }
+
+    // Google Sheets sync state. The baseline is what lets the merge tell a real
+    // edit from a stale value, so nobody but a manager may touch it.
+    match /sync/{docId} {
+      allow read: if isManager();
+      allow write: if isManager();
+    }
+    match /syncBaseline/{chunkId} {
+      allow read: if isManager();
+      allow write: if isManager();
+    }
+
+    // Managers can see who else is a manager. Nobody can edit the list from the
+    // app — add and remove people in the Firebase console only.
+    match /managers/{uid} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Anything not matched above is denied by default.
+  }
+}
