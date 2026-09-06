@@ -15,5 +15,5 @@ export const firebaseConfig = {
 
   // Google OAuth client ID for the Sheets sync (README Part 5).
   // Leave as-is to keep sync disabled; the rest of the app works without it.
-  googleClientId: "PASTE_YOUR_GOOGLE_CLIENT_ID",
+  googleClientId: "1076240840526-rtcmre1si8iq03fphg17p6gagv1sroa2.apps.googleusercontent.com",
 };
